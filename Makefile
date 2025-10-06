@@ -48,4 +48,5 @@ $(PAYLOAD_C): $(PAYLOAD_LZMA) $(PAYLOAD)
 		>> '$@'
 
 $(PROG_BIN): $(SRC) $(PAYLOAD_C)
-	$(CROSS_COMPILE)gcc $(CFLAGS) $(LDFLAGS) -o '$@' $^
+	$(CROSS_COMPILE)gcc $(CFLAGS) -o '$@' $^ $(LDFLAGS)
+	echo '------'; du -h '$(PAYLOAD)' '$@'
