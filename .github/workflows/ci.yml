@@ -1,0 +1,221 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  Lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get purge -y man-db
+          sudo apt-get install -y clang-format
+      - name: Run clang-format
+        run: |
+          clang-format --dry-run --Werror *.c *.h cstd/*.h
+
+  Test:
+    name: Test
+    runs-on: ubuntu-latest
+    env:
+      cross_dir: /opt/x-tools
+      qemu_dir: /opt/qemu
+      cross_glibc_url: https://github.com/cross-tools/gnu-cross/releases/download/20250929/
+      cross_musl_url: https://github.com/cross-tools/musl-cross/releases/download/20250929/
+      qemu_url: https://github.com/multiarch/qemu-user-static/releases/download/v7.2.0-1/
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name:           aarch64
+            glibc_triplet:  aarch64-unknown-linux-gnu
+            musl_triplet:   aarch64-unknown-linux-musl
+            qemu:           qemu-aarch64-static
+
+          - name:           arm
+            glibc_triplet:  arm-unknown-linux-gnueabi
+            musl_triplet:   arm-unknown-linux-musleabi
+            qemu:           qemu-arm-static
+
+          - name:           i686
+            glibc_triplet:  i686-unknown-linux-gnu
+            musl_triplet:   i686-unknown-linux-musl
+            qemu:           qemu-i386-static
+
+          - name:           loongarch64
+            glibc_triplet:  loongarch64-unknown-linux-gnu
+            musl_triplet:   loongarch64-unknown-linux-musl
+            qemu:           qemu-loongarch64-static
+
+          - name:           m68k
+            glibc_triplet:  m68k-unknown-linux-gnu
+            musl_triplet:   m68k-unknown-linux-musl
+            qemu:           qemu-m68k-static
+
+          - name:           microblazeel
+            glibc_triplet:  microblazeel-xilinx-linux-gnu
+            musl_triplet:   microblazeel-xilinx-linux-musl
+            qemu:           qemu-microblazeel-static
+
+          - name:           microblaze
+            glibc_triplet:  microblaze-xilinx-linux-gnu
+            musl_triplet:   microblaze-xilinx-linux-musl
+            qemu:           qemu-microblaze-static
+
+          - name:           mips64el
+            glibc_triplet:  mips64el-unknown-linux-gnu
+            musl_triplet:   mips64el-unknown-linux-musl
+            qemu:           qemu-mips64el-static
+
+          - name:           mips64
+            glibc_triplet:  mips64-unknown-linux-gnu
+            musl_triplet:   mips64-unknown-linux-musl
+            qemu:           qemu-mips64-static
+
+          - name:           mipsel
+            glibc_triplet:  mipsel-unknown-linux-gnu
+            musl_triplet:   mipsel-unknown-linux-musl
+            qemu:           qemu-mipsel-static
+
+          - name:           mips
+            glibc_triplet:  mips-unknown-linux-gnu
+            musl_triplet:   mips-unknown-linux-musl
+            qemu:           qemu-mips-static
+
+          - name:           or1k
+            glibc_triplet:  or1k-unknown-linux-gnu
+            musl_triplet:   or1k-unknown-linux-musl
+            qemu:           qemu-or1k-static
+
+          - name:           powerpc64le
+            glibc_triplet:  powerpc64le-unknown-linux-gnu
+            musl_triplet:   powerpc64le-unknown-linux-musl
+            qemu:           qemu-ppc64le-static
+
+          - name:           powerpc64
+            glibc_triplet:  powerpc64-unknown-linux-gnu
+            musl_triplet:   powerpc64-unknown-linux-musl
+            qemu:           qemu-ppc64-static
+
+          - name:           powerpc
+            glibc_triplet:  powerpc-unknown-linux-gnu
+            musl_triplet:   powerpc-unknown-linux-musl
+            qemu:           qemu-ppc-static
+
+          - name:           riscv32
+            glibc_triplet:  riscv32-unknown-linux-gnu
+            musl_triplet:   riscv32-unknown-linux-musl
+            qemu:           qemu-riscv32-static
+
+          - name:           riscv64
+            glibc_triplet:  riscv64-unknown-linux-gnu
+            musl_triplet:   riscv64-unknown-linux-musl
+            qemu:           qemu-riscv64-static
+
+          - name:           s390x
+            glibc_triplet:  s390x-ibm-linux-gnu
+            musl_triplet:   s390x-ibm-linux-musl
+            qemu:           qemu-s390x-static
+
+          - name:           sh4
+            glibc_triplet:  sh4-multilib-linux-gnu
+            musl_triplet:   sh4-multilib-linux-musl
+            qemu:           qemu-sh4-static
+
+          - name:           x86_64
+            glibc_triplet:  x86_64-unknown-linux-gnu
+            musl_triplet:   x86_64-unknown-linux-musl
+            qemu:           qemu-x86_64-static
+
+          - name:               alpha
+            glibc_deb_triplet:  alpha-linux-gnu
+            qemu:               qemu-alpha-static
+
+          - name:               hppa
+            glibc_deb_triplet:  hppa-linux-gnu
+            qemu:               qemu-hppa-static
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Create payload
+        run: |
+          printf '#include <stdio.h>\nchar msg[1000000] = "OK"; int main() { puts(msg); return 0; }\n' > /tmp/pl.c
+          gcc -o /tmp/pl /tmp/pl.c
+          /tmp/pl && test $('/tmp/pl') = 'OK'
+
+      - name: Setup qemu
+        run: |
+          sudo mkdir -pm 777 '${{ env.qemu_dir }}'
+          curl -Lfo '${{ env.qemu_dir }}/${{ matrix.qemu }}' '${{ env.qemu_url }}/${{ matrix.qemu }}'
+          chmod +x '${{ env.qemu_dir }}/${{ matrix.qemu }}'
+          '${{ env.qemu_dir }}/${{ matrix.qemu }}' --version
+
+      - name: Test with ${{ matrix.glibc_triplet || 'N/A' }}
+        if: ${{ matrix.glibc_triplet }}
+        run: |
+          sudo mkdir -pm 777 '${{ env.cross_dir }}'
+          pushd '${{ env.cross_dir }}'
+          curl -Lfo '${{ matrix.glibc_triplet }}.tar.xz' '${{ env.cross_glibc_url }}/${{ matrix.glibc_triplet }}.tar.xz'
+          tar xJf '${{ matrix.glibc_triplet }}.tar.xz'
+          popd
+
+          QEMU='${{ env.qemu_dir }}/${{ matrix.qemu }}'
+          CROSS_COMPILE='${{ env.cross_dir }}/${{ matrix.glibc_triplet }}/bin/${{ matrix.glibc_triplet }}-'
+          "${CROSS_COMPILE}gcc" --version
+
+          make clean
+          make PAYLOAD="/tmp/pl" CROSS_COMPILE="${CROSS_COMPILE}"
+          "$QEMU" build/pl && test $("$QEMU" build/pl) = 'OK'
+
+          make clean
+          make PAYLOAD="/tmp/pl" CROSS_COMPILE="${CROSS_COMPILE}" STDLIB=1
+          "$QEMU" build/pl && test $("$QEMU" build/pl) = 'OK'
+
+      - name: Test with ${{ matrix.musl_triplet || 'N/A' }}
+        if: ${{ matrix.musl_triplet }}
+        run: |
+          sudo mkdir -pm 777 '${{ env.cross_dir }}'
+          pushd '${{ env.cross_dir }}'
+          curl -Lfo '${{ matrix.musl_triplet }}.tar.xz' '${{ env.cross_musl_url }}/${{ matrix.musl_triplet }}.tar.xz'
+          tar xJf '${{ matrix.musl_triplet }}.tar.xz'
+          popd
+
+          QEMU='${{ env.qemu_dir }}/${{ matrix.qemu }}'
+          CROSS_COMPILE='${{ env.cross_dir }}/${{ matrix.musl_triplet }}/bin/${{ matrix.musl_triplet }}-'
+          "${CROSS_COMPILE}gcc" --version
+
+          make clean
+          make PAYLOAD="/tmp/pl" CROSS_COMPILE="${CROSS_COMPILE}"
+          "$QEMU" build/pl && test $("$QEMU" build/pl) = 'OK'
+
+          make clean
+          make PAYLOAD="/tmp/pl" CROSS_COMPILE="${CROSS_COMPILE}" STDLIB=1
+          "$QEMU" build/pl && test $("$QEMU" build/pl) = 'OK'
+
+      - name: Test with ${{ matrix.glibc_deb_triplet || 'N/A' }} (deb)
+        if: ${{ matrix.glibc_deb_triplet }}
+        run: |
+          sudo apt-get update
+          sudo apt-get purge -y man-db
+          sudo apt-get install -y 'gcc-${{ matrix.glibc_deb_triplet }}'
+
+          QEMU='${{ env.qemu_dir }}/${{ matrix.qemu }}'
+          CROSS_COMPILE='${{ matrix.glibc_deb_triplet }}-'
+          "${CROSS_COMPILE}gcc" --version
+
+          make clean
+          make PAYLOAD="/tmp/pl" CROSS_COMPILE="${CROSS_COMPILE}" STDLIB=1
+          "$QEMU" build/pl && test $("$QEMU" build/pl) = 'OK'
