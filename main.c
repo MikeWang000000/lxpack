@@ -114,7 +114,6 @@ static int open_execfd(int cloexec)
     int res;
 
     res = dup2(k_tempfd, k_execfd);
-    close(k_tempfd);
     if (res < 0) {
         return -1;
     }
